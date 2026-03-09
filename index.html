@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>지레의 원리 시뮬레이션 - 상봉초 부장님</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @font-face {
+            font-family: 'NexonMaplestory';
+            src: url('https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_20-04@2.1/MaplestoryOTFBold.woff') format('woff');
+        }
+        :root {
+            --bg-color: #f0f4f8;
+            --main-blue: #3498db;
+            --sub-orange: #e67e22;
+            --success-green: #27ae60;
+            --danger-red: #e74c3c;
+            --dark-navy: #2c3e50;
+        }
+        body { font-family: 'NexonMaplestory', sans-serif; background-color: var(--bg-color); margin: 0; overflow: hidden; display: flex; flex-direction: column; align-items: center; }
+        
+        #menu { padding: 15px; background: #fff; width: 100%; display: flex; justify-content: center; align-items: center; gap: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); z-index: 100; }
+        
+        .control-group { display: flex; align-items: center; gap: 8px; background: #f8f9fa; padding: 5px 12px; border-radius: 10px; border: 1px solid #dee2e6; }
+        input[type=range] { width: 120px; cursor: pointer; }
+        input[type=number] { width: 50px; padding: 5px; border-radius: 5px; border: 1px solid #ccc; font-family: 'NexonMaplestory'; text-align: center; }
+
+        button { 
+            padding: 10px 18px; font-size: 1rem; cursor: pointer; border: none; border-radius: 10px; 
+            font-family: 'NexonMaplestory'; transition: all 0.2s ease;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .btn-add { background: var(--main-blue); color: white; }
+        .btn-remove { background: var(--sub-orange); color: white; }
+        .btn-run { background: var(--success-green); color: white; }
+        .btn-reset { background: var(--dark-navy); color: white; }
+        
+        button:hover { filter: brightness(1.1); transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        button:disabled { background: #ccc; cursor: not-allowed; transform: none; filter: none; }
+
+        .status-info { 
+            position: absolute; top: 100px; left: 30px; background: white; padding: 25px; 
+            border-radius: 20px; border-left: 6px solid var(--main-blue); width: 280px; 
+            z-index: 50; line-height: 1.8; box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+        }
+    </style>
+</head>
+<body>
+
+<div id="menu">  
+    
+    <div>
+        <span style="font-size: 1.5em; padding-right: 10px;" >지레 시뮬레이션</span>
+            </div>
+    <div class="control-group">
+        <span><i class="fa-solid fa-left-right"></i> 받침점</span>
+        <input type="range" id="fulcrumSlider" min="10" max="90" value="50" oninput="moveFulcrum(this.value)">
+    </div>
+    <div class="control-group">
+        <span><i class="fa-solid fa-weight-hanging"></i> 우측</span>
+        <input type="number" id="rightWeightInput" value="5" min="1" max="100" oninput="updateRightWeight(this.value)"> <small>kg</small>
+    </div>
+    <button class="btn-add" id="addBtn" onclick="addLeftBlock()"><i class="fa-solid fa-plus"></i> 1kg 추가</button>
+    <button class="btn-remove" id="removeBtn" onclick="removeLeftBlock()"><i class="fa-solid fa-minus"></i> 1kg 제거</button>
+    <button class="btn-run" id="runBtn" onclick="toggleRun()"><i class="fa-solid fa-play"></i> 실험 시작</button>
+    <button class="btn-reset" onclick="location.reload()"><i class="fa-solid fa-trash-can"></i> 전체 초기화</button>
+</div>
+
+<div class="status-info">
+    <b><i class="fa-solid fa-scale-balanced"></i> 실험 도우미</b><br>
+    - <b>1kg 추가/제거</b> 버튼으로 왼쪽 무게를 조절하세요.<br>
+    - <b>다시 세팅하기</b>를 누르면 이전 배치로 정확히 돌아옵니다.
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+<script>
+    const { Engine, Render, Runner, Bodies, Composite, Mouse, MouseConstraint, Body, Events } = Matter;
+
+    const engine = Engine.create();
+    engine.world.gravity.y = 0;
+
+    const render = Render.create({
+        element: document.body,
+        engine: engine,
+        options: { width: window.innerWidth, height: window.innerHeight, wireframes: false, background: '#f0f4f8' }
+    });
+
+    Render.run(render);
+    const runner = Runner.create();
+    Runner.run(runner, engine);
+
+    const groundY = window.innerHeight - 50;
+    const ground = Bodies.rectangle(window.innerWidth/2, groundY + 20, window.innerWidth, 40, { isStatic: true, render: { fillStyle: '#34495e' } });
+
+    const triWidth = 80, triHeight = 60;
+    const triangleVertices = [{ x: 0, y: -triHeight / 2 }, { x: triWidth / 2, y: triHeight / 2 }, { x: -triWidth / 2, y: triHeight / 2 }];
+    const noCollision = { mask: 0x0000 };
+
+    const fulcrum = Bodies.fromVertices(window.innerWidth/2, groundY - triHeight/2, triangleVertices, {
+        isStatic: false, label: 'fulcrum', render: { fillStyle: '#e67e22' }, friction: 1, inertia: Infinity, collisionFilter: noCollision
+    });
+
+    const lever = Bodies.rectangle(window.innerWidth/2, groundY - 80, 700, 20, {
+        isStatic: false, label: 'lever', render: { fillStyle: '#bdc3c7' }, friction: 1, collisionFilter: noCollision
+    });
+
+    let rightWeight = 5;
+    const rightBox = Bodies.rectangle(window.innerWidth/2 + 220, groundY - 130, 80, 80, {
+        isStatic: false, label: 'rightBox', render: { fillStyle: '#95a5a6', strokeStyle: '#7f8c8d', lineWidth: 2 }, 
+        mass: rightWeight, collisionFilter: noCollision
+    });
+
+    Composite.add(engine.world, [ground, fulcrum, lever, rightBox]);
+
+    const mouse = Mouse.create(render.canvas);
+    const mouseConstraint = MouseConstraint.create(engine, {
+        mouse: mouse,
+        constraint: { stiffness: 0.1, render: { visible: false } }
+    });
+    Composite.add(engine.world, mouseConstraint);
+
+    let isRunning = false;
+    let leftBlocks = []; // 추가된 블록들을 관리할 배열
+    let savedStates = [];
+
+    // --- 우측 무게/크기 업데이트 ---
+    let currentScale = 1;
+    function updateRightWeight(val) {
+        if (isRunning) return;
+        const newWeight = parseFloat(val) || 1;
+        const resetScale = 1 / currentScale;
+        const newScale = Math.sqrt(newWeight / 5);
+        Body.scale(rightBox, resetScale * newScale, resetScale * newScale);
+        Body.setMass(rightBox, newWeight);
+        currentScale = newScale;
+    }
+
+    function moveFulcrum(val) {
+        if (isRunning) return;
+        const newX = (val / 100) * window.innerWidth;
+        Body.setPosition(fulcrum, { x: newX, y: groundY - triHeight/2 });
+    }
+
+    // --- 정밀 Y축 고정 (강력 클램핑) ---
+    Events.on(mouseConstraint, 'dragactive', function(event) {
+        if (!isRunning && event.body === fulcrum) {
+            const fixedY = groundY - triHeight/2;
+            Body.setPosition(fulcrum, { x: mouse.position.x, y: fixedY });
+            fulcrum.positionPrev.y = fixedY; 
+            Body.setVelocity(fulcrum, { x: 0, y: 0 });
+            document.getElementById('fulcrumSlider').value = (fulcrum.position.x / window.innerWidth) * 100;
+        }
+    });
+
+    Events.on(engine, 'beforeUpdate', function() {
+        if (!isRunning) {
+            const fixedY = groundY - triHeight/2;
+            Body.setPosition(fulcrum, { x: fulcrum.position.x, y: fixedY });
+            Body.setAngle(fulcrum, 0);
+            Composite.allBodies(engine.world).forEach(body => {
+                if (body !== ground && mouseConstraint.body !== body) {
+                    Body.setVelocity(body, { x: 0, y: 0 });
+                    Body.setAngularVelocity(body, 0);
+                }
+            });
+        }
+    });
+
+    // --- 블록 추가 기능 ---
+    function addLeftBlock() {
+        if (isRunning) return;
+        const blockSize = 40;
+        const stackX = lever.position.x - 220;
+        const stackY = lever.position.y - 32 - (leftBlocks.length * blockSize);
+        const block = Bodies.rectangle(stackX, stackY, blockSize, blockSize, {
+            isStatic: false, label: 'leftBlock', mass: 1,
+            render: { fillStyle: '#3498db', strokeStyle: '#2980b9', lineWidth: 2 }, collisionFilter: noCollision
+        });
+        Composite.add(engine.world, block);
+        leftBlocks.push(block);
+    }
+
+    // --- 블록 제거 기능 (마지막 블록부터) ---
+    function removeLeftBlock() {
+        if (isRunning || leftBlocks.length === 0) return;
+        const lastBlock = leftBlocks.pop();
+        Composite.remove(engine.world, lastBlock);
+    }
+
+    function toggleRun() {
+        const btn = document.getElementById('runBtn');
+
+        if (!isRunning) {
+            savedStates = [];
+            Composite.allBodies(engine.world).forEach(body => {
+                if (body !== ground) {
+                    savedStates.push({
+                        body: body,
+                        position: { x: body.position.x, y: body.position.y },
+                        angle: body.angle
+                    });
+                }
+            });
+
+            isRunning = true;
+            btn.innerHTML = '<i class="fa-solid fa-arrow-rotate-left"></i> 다시 세팅하기';
+            btn.style.background = "var(--danger-red)";
+            
+            // UI 잠금
+            document.querySelectorAll('#menu input, #menu button:not(#runBtn, .btn-reset)').forEach(el => el.disabled = true);
+
+            engine.world.gravity.y = 1.2;
+            Body.setStatic(fulcrum, true);
+            Composite.allBodies(engine.world).forEach(body => {
+                if (body !== ground) body.collisionFilter.mask = 0xFFFFFFFF;
+            });
+        } 
+        else {
+            isRunning = false;
+            btn.innerHTML = '<i class="fa-solid fa-play"></i> 실험 시작';
+            btn.style.background = "var(--success-green)";
+
+            engine.world.gravity.y = 0;
+            Body.setStatic(fulcrum, false);
+
+            savedStates.forEach(state => {
+                Body.setPosition(state.body, state.position);
+                Body.setAngle(state.body, state.angle);
+                Body.setVelocity(state.body, { x: 0, y: 0 });
+                Body.setAngularVelocity(state.body, 0);
+                state.body.collisionFilter.mask = 0x0000;
+            });
+
+            // UI 해제
+            document.querySelectorAll('#menu input, #menu button').forEach(el => el.disabled = false);
+        }
+    }
+</script>
+</body>
+</html>
