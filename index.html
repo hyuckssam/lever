@@ -130,7 +130,7 @@
     Runner.run(runner, engine);
 
     const groundY = window.innerHeight - 50;
-    const ground = Bodies.rectangle(window.innerWidth/2, groundY + 20, window.innerWidth, 40, { isStatic: true, render: { fillStyle: '#34495e' } });
+    const ground = Bodies.rectangle(window.innerWidth/2, groundY, window.innerWidth, 40, { isStatic: true, render: { fillStyle: '#34495e' } });
 
     const triWidth = 80, triHeight = 60;
     const triangleVertices = [{ x: 0, y: -triHeight / 2 }, { x: triWidth / 2, y: triHeight / 2 }, { x: -triWidth / 2, y: triHeight / 2 }];
@@ -278,6 +278,7 @@
 </script>
 </body>
 </html>
+
 
 
 
