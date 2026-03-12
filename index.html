@@ -109,7 +109,6 @@
     <button class="btn-add" id="addBtn" onclick="addLeftBlock()"><i class="fa-solid fa-plus"></i> 1kg 추가</button>
     <button class="btn-remove" id="removeBtn" onclick="removeLeftBlock()"><i class="fa-solid fa-minus"></i> 1kg 제거</button>
     <button class="btn-run" id="runBtn" onclick="toggleRun()"><i class="fa-solid fa-play"></i> 실험 시작</button>
-    <button class="btn-reset" onclick="location.reload()"><i class="fa-solid fa-trash-can"></i> 전체 초기화</button>
 </div>
 
 
@@ -123,7 +122,7 @@
     const render = Render.create({
         element: document.body,
         engine: engine,
-        options: { width: window.innerWidth, height: window.innerHeight-100, wireframes: false, background: '#f0f4f8' }
+        options: { width: window.innerWidth, height: window.innerHeight, wireframes: false, background: '#f0f4f8' }
     });
 
     Render.run(render);
@@ -279,5 +278,6 @@
 </script>
 </body>
 </html>
+
 
 
